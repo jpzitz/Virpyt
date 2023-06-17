@@ -28,11 +28,13 @@ class Workbook():
         print("Set filename")
         self._file = filename
     '''
+
+	# .worksheets returns a list of sheetnames
     @property
     def worksheets(self):
         return self.file.sheetnames
 
-    # attribute/method that returns a list of VirPyTSheet
+    # attribute/method that returns a list of VirPyTSheet objects
     #@property    
     def sheets(self):
 
@@ -60,15 +62,15 @@ if __name__ == '__main__':
     #wb = openpyxl.load_workbook('sample.xlsx')
 
     workbook = Workbook('sample.xlsx')
-    print(workbook.file)
+    print(workbook.file)		#address of openpyxl workbook object
     
-    print(workbook.sheets)
-    print(workbook.worksheets)
+    print(workbook.sheets())	# returns list of openpyxl sheet objects and addresses
+    print(workbook.worksheets)	#list of names of worksheets
     
     #worksheet = Sheet(workbook.file.active)
     #if worksheet:
     #    print("ok!")
 
     for sheet in workbook.worksheets:
-        print("Found sheet named ", sheet.title)
+        print("Found sheet named ", sheet.title)	#prints each individual sheet title
 
