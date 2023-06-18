@@ -12,10 +12,8 @@ class Workbook():
     # and then uses openpyxl to open that file and store the
     # workbook pointer in a local member.  
     def __init__(self, file):
-        self.file = openpyxl.load_workbook(file)
-
-        
-    '''        
+        self.file = file
+    
     @property
     def file(self):
         """The file property."""
@@ -25,13 +23,13 @@ class Workbook():
     @file.setter
     def file(self, filename):
         print("Set filename")
-        self._file = filename
-    '''
+        self._file = openpyxl.load_workbook(filename)
+    
 
 	# .worksheets returns a list of sheetnames
     @property
     def worksheets(self):
-        return self.file.sheetnames
+        return self._file.sheetnames
 
     # attribute/method that returns a list of VirPyTSheet objects
     #@property    
@@ -57,18 +55,16 @@ class Sheet():
 if __name__ == '__main__':
     #filename = input(print("Input filename: "))
     
-    #wb = openpyxl.load_workbook('sample.xlsx')
-
-    workbook = Workbook('sample.xlsx')
-    print(workbook.file)		#address of openpyxl workbook object
+    wb = Workbook('sample.xlsx')
+    print(wb.file)		#address of openpyxl workbook object
     
-    print(workbook.sheets())	# returns list of sheet objects and addresses
-    print(workbook.worksheets)	#list of names of worksheets
+    print(wb.sheets())	# returns list of sheet objects and addresses
+    print(wb.worksheets)	#list of names of worksheets
     
     #worksheet = Sheet(workbook.file.active)
     #if worksheet:
     #    print("ok!")
 
-    for sheet in workbook.worksheets:
-        print("Found sheet named ", sheet.title)	#prints each sheet title
+    for sheet in wb.worksheets:		#prints each sheet title
+        print("Found sheet named %s" % sheet)
 
