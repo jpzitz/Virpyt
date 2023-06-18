@@ -1,21 +1,19 @@
-import openpyxl
+#import openpyxl
 import VirPyT
-from VirPyT import Workbook, Sheet
+from VirPyT import Workbook
     
 
 
-workbook = VirPyT.Workbook('sample.xlsx')
-print(workbook.file)
+wb = VirPyT.Workbook('sample.xlsx')
+print(wb.workbook)
 
-worksheet = wb.active
-if worksheet:
-    print("ok!")
 
-for sheet in workbook.sheets:
-    print("Found sheet named %s" %sheet.title)
+
+for sheet in wb.worksheets:
+    print("Found sheet named %s" %sheet)
     
-    for table in sheet.tables:
-            print("Found table named %t" %table.title)
+    #for table in sheet.tables():
+     #       print("Found table named %t" %table)
 
      #   for column_header in table.header:  # iterate through cells that make
                                             # up the header
