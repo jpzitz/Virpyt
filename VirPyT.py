@@ -28,17 +28,11 @@ class Workbook():
         return [Sheet(self._workbook[sheetname], sheetname)
                 for sheetname in self.sheetnames]
 
-    #returns range of all value-containing cells (eg: A1:E7)
-    def table_dims(self, sheetname):
-        return self._workbook[sheetname].calculate_dimension()
-                
-
+    
     def save(self):
         self._workbook.save()
         
         
-
-
 
 # sheet class with pointers to sheets in the workbook        
 class Sheet():
@@ -46,35 +40,112 @@ class Sheet():
     def __init__(self, sheet, name):
         self._sheet = sheet
         self._name = name
+        self._table = {}    #{startcell : values}
+        
 
     @property
     def name(self):
         return self._name
 
     #table objects
+    @property
     def tables(self):
-        return self.sheet.calculate_dimension()
+        self.find_tables()
+        
+        return list(self._table.values())
 
+        
+    def find_tables(self):
+
+        #find first cell with values using min_row, min_column
+        startcell = self._sheet.cell(row=self._sheet.min_row,
+                                     column=self._sheet.min_column).coordinate
+
+        
+        try:
+            # 0-based numrow & numcol
+            numrow = 0
+            numcol = 0
+            totalrow = self._sheet.min_row
+            totalcol = self._sheet.min_column
+
+            # scan until empty column is found
+            for col in self._sheet.iter_cols(min_col=totalcol,
+                                             min_row=totalrow):
+                if col[0].value:    #header row should extend over whole table
+                    numcol += 1
+                else:
+                    break
+            
+            
+            for row in self._sheet.iter_rows(min_row=totalrow,
+                                             min_col=totalcol,
+                                             max_col=totalcol+numcol-1):
+                #sometimes theres a gap where one column doesnt have data
+                emptyrow = True
+                for cell in row:
+                    if cell.value:
+                        emptyrow = False
+                        
+                if emptyrow:
+                    break
+                    
+                else:
+                    numrow += 1
+
+            totalrow +=numrow -1
+            totalcol +=numcol -1
+            print(totalrow,totalcol)
+
+
+            self._table[startcell] = Table(startcell, numcol, numrow)
+            startcell = self.startcell(totalrow,totalcol, numrow, numcol)
+
+        finally:
+            pass
+
+
+
+    def startcell(self, rowcoord, colcoord, numrow, numcol):
+
+        # search vertically for next table
+        for row in self._sheet.iter_rows():
+                if not row[self._sheet.min_row].value:
+                    rowcoord += 1
+        
+
+        # start seraching horizontally if maxrows reached
+        if rowcoord == self._sheet.max_row:
+            for col in self._sheet.iter_cols(min_col = colcoord):
+                if not col[0].value:
+                    colcoord += 1
+
+            return self._sheet.cell(row=(rowcoord-numrow+1),
+                                    column=colcoord).coordinate
+        else:
+            return self._sheet.cell(row=rowcoord,
+                                    column=(colcoord-numcol+1)).coordinate
+
+            
+
+    
+
+
+        #scan til valued cell, use header as startcell
+        
+        
         
         
 
 # table class probably to scan empty cells that bound the table
 # or look for cell border formatting in the file
 class Table():
-    def __init__(self, table):
-        self.table = table
-
-    @property
-    def range(self):
-        return self.calculate_dimension()
-
-
-
-
-
-        _startcell #set at A1 for now
-        _numrow
-        _numcol
+    def __init__(self, startcell, numrow, numcol):
+        
+        #defines table object with starting cell and dimensions
+        self._startcell = startcell
+        self._numrow = numrow
+        self._numcol = numcol
 
         #run through sheet to find starting cell
         #work on identifying tables in a sheet
@@ -90,7 +161,6 @@ class Row():
             
 #class Cell():
 
-              
 
 if __name__ == '__main__':
     #workbookname = input(print("Input workbookname: "))
@@ -104,23 +174,6 @@ if __name__ == '__main__':
 
     for sheet in wb.sheets:     #prints each sheet title
         print("Found sheet named %s" % sheet.name)
-
-    
-    for ws_name in wb.sheetnames:
-
-        print(f"worksheet name: {ws_name}")
-        # open each worksheet one at a time
-        #ws = wb._workbook[ws_name]
-        print(wb.table_dims(ws_name))   #shows range of value-containing cells
-        
-
-
-
-
-    wb.save
-
-    
-    
-
-
-
+        for table in sheet.tables:
+            print("Found table: ", table._startcell,
+                  table._numrow, table._numcol)
