@@ -57,17 +57,19 @@ class Sheet():
         
     def find_tables(self):
 
+        totalrow = self._sheet.min_row
+        totalcol = self._sheet.min_column
+        
         #find first cell with values using min_row, min_column
         startcell = self._sheet.cell(row=self._sheet.min_row,
                                      column=self._sheet.min_column).coordinate
 
         
-        try:
+        while totalrow < self._sheet.max_row:
             # 0-based numrow & numcol
             numrow = 0
             numcol = 0
-            totalrow = self._sheet.min_row
-            totalcol = self._sheet.min_column
+            
 
             # scan until empty column is found
             for col in self._sheet.iter_cols(min_col=totalcol,
@@ -95,14 +97,17 @@ class Sheet():
 
             totalrow +=numrow -1
             totalcol +=numcol -1
-            print(totalrow,totalcol)
 
 
             self._table[startcell] = Table(startcell, numcol, numrow)
-            startcell = self.startcell(totalrow,totalcol, numrow, numcol)
+            print("coordinates of endcell: ",  chr(totalcol+64), totalrow)
+            startcell, totalrow, totalcol = self.startcell(totalrow,
+                                                           totalcol,
+                                                           numrow,
+                                                           numcol)
+            
 
-        finally:
-            pass
+        
 
 
 
@@ -113,7 +118,7 @@ class Sheet():
                 if not row[self._sheet.min_row].value:
                     rowcoord += 1
         
-
+        '''
         # start seraching horizontally if maxrows reached
         if rowcoord == self._sheet.max_row:
             for col in self._sheet.iter_cols(min_col = colcoord):
@@ -125,8 +130,11 @@ class Sheet():
         else:
             return self._sheet.cell(row=rowcoord,
                                     column=(colcoord-numcol+1)).coordinate
+        '''
 
-            
+        startcell = self._sheet.cell(row=rowcoord,
+                                    column=(colcoord-numcol+1))
+        return startcell.coordinate, startcell.row , startcell.column        
 
     
 
@@ -161,6 +169,7 @@ class Row():
             
 #class Cell():
 
+              
 
 if __name__ == '__main__':
     #workbookname = input(print("Input workbookname: "))
@@ -177,3 +186,4 @@ if __name__ == '__main__':
         for table in sheet.tables:
             print("Found table: ", table._startcell,
                   table._numrow, table._numcol)
+
