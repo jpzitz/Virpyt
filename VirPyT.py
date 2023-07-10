@@ -6,7 +6,7 @@ import openpyxl
         
 
 # workbook class with pointer to the workbook
-class Workbook():
+class virpyt_Workbook():
 
     # constructor/attribute __init__() that takes a workbookname
     # and then uses openpyxl to open that workbook and store the
@@ -69,6 +69,7 @@ class Sheet():
             # 0-based numrow & numcol
             numrow = 0
             numcol = 0
+            table_data = []
             
 
             # scan until empty column is found
@@ -94,13 +95,17 @@ class Sheet():
                     
                 else:
                     numrow += 1
+                    table_data.append(row)
+                    
 
             totalrow +=numrow -1
             totalcol +=numcol -1
 
 
-            self._table[startcell] = Table(startcell, numcol, numrow)
-            print("coordinates of endcell: ",  chr(totalcol+64), totalrow)
+            self._table[startcell] = Table(startcell, numcol, numrow, table_data)
+            
+
+            # find next table
             startcell, totalrow, totalcol = self.startcell(totalrow,
                                                            totalcol,
                                                            numrow,
@@ -148,21 +153,47 @@ class Sheet():
 # table class probably to scan empty cells that bound the table
 # or look for cell border formatting in the file
 class Table():
-    def __init__(self, startcell, numrow, numcol):
+    def __init__(self, startcell, numrow, numcol, table):
         
         #defines table object with starting cell and dimensions
         self._startcell = startcell
         self._numrow = numrow
         self._numcol = numcol
+        self.table = table
 
-        #run through sheet to find starting cell
-        #work on identifying tables in a sheet
-        #what do we want to do with it
-        #list of headers, put in dict to get col num
+        
+    @property
+    def header(self):
+        header = []
+        for cell in self.table[0]:
+            header.append(cell.value)
+
+        return header
+
+    @property
+    def rows(self):
+        return [([cell.value for cell in row]) for row in self.table]
+
+    @property
+    def columns(self):
+        columns = []
+        idx = 0
+        while idx < len(self.table[0]):
+            columns.append([row[idx].value for row in self.table])
+            idx+=1
+            
+        return columns
+            
+            
+            
+        
+        
+        
 
         
 
 class Row():
+    
     def __init__(self, row ):
         self.row = row
 
@@ -174,7 +205,7 @@ class Row():
 if __name__ == '__main__':
     #workbookname = input(print("Input workbookname: "))
     
-    wb = Workbook('sample.xlsx')
+    wb = virpyt_Workbook('sample.xlsx')
     print(wb)        #address of openpyxl workbook object
 
     print(wb.sheets)        #list of sheet object addresses
@@ -186,4 +217,6 @@ if __name__ == '__main__':
         for table in sheet.tables:
             print("Found table: ", table._startcell,
                   table._numrow, table._numcol)
-
+            print(table.header)
+            #print(table.rows[0])    #rows[0] same as header method
+            print(table.columns[0])  #prints first column of data in each table
