@@ -6,7 +6,7 @@ import openpyxl
         
 
 # workbook class with pointer to the workbook
-class virpyt_Workbook():
+class VirpytWorkbook():
 
     # constructor/attribute __init__() that takes a workbookname
     # and then uses openpyxl to open that workbook and store the
@@ -38,9 +38,9 @@ class virpyt_Workbook():
 class Sheet():
     
     def __init__(self, sheet, name):
-        self._sheet = sheet
+        self._sheet = sheet     #openpyxl sheet obj
         self._name = name
-        self._table = {}    #{startcell : values}
+        self._tables = {}       #{startcell : values}
         
 
     @property
@@ -51,95 +51,90 @@ class Sheet():
     @property
     def tables(self):
         self.find_tables()
+        return [v for _,v in self._tables.items()]
         
-        return list(self._table.values())
 
         
     def find_tables(self):
 
-        totalrow = self._sheet.min_row
-        totalcol = self._sheet.min_column
+        tablestartrow = self._sheet.min_row
+        tablestartcol = self._sheet.min_column
         
         #find first cell with values using min_row, min_column
         startcell = self._sheet.cell(row=self._sheet.min_row,
                                      column=self._sheet.min_column).coordinate
 
-        
-        while totalrow < self._sheet.max_row:
+        while tablestartrow < self._sheet.max_row:
             # 0-based numrow & numcol
+            # dimensions of table
             numrow = 0
             numcol = 0
-            table_data = []
-            
 
             # scan until empty column is found
-            for col in self._sheet.iter_cols(min_col=totalcol,
-                                             min_row=totalrow):
+            for col in self._sheet.iter_cols(min_col=tablestartcol,
+                                             min_row=tablestartrow):
                 if col[0].value:    #header row should extend over whole table
-                    numcol += 1
+                    numcol += 1     #count columns in header row
                 else:
-                    break
-            
-            
-            for row in self._sheet.iter_rows(min_row=totalrow,
-                                             min_col=totalcol,
-                                             max_col=totalcol+numcol-1):
+                    break           #break when no value in header row
+
+            # scan until empty row is found
+            for row in self._sheet.iter_rows(min_row=tablestartrow,
+                                             min_col=tablestartcol,
+                                             max_col=tablestartcol+numcol-1):
                 #sometimes theres a gap where one column doesnt have data
                 emptyrow = True
                 for cell in row:
                     if cell.value:
                         emptyrow = False
-                        
                 if emptyrow:
                     break
-                    
                 else:
                     numrow += 1
-                    table_data.append(row)
-                    
 
-            totalrow +=numrow -1
-            totalcol +=numcol -1
-
-
-            self._table[startcell] = Table(startcell, numcol, numrow, table_data)
+            coords = (tablestartcol, tablestartrow)
             
+            tableendcol = (tablestartcol + numcol -1)
+            tableendrow = (tablestartrow + numrow -1)
+
+            self._tables[startcell] = Table(self._sheet, coords,
+                                            numcol, numrow)
+
 
             # find next table
-            startcell, totalrow, totalcol = self.startcell(totalrow,
-                                                           totalcol,
-                                                           numrow,
-                                                           numcol)
-            
+            startcell, tablestartcol, tablestartrow = self.startcell(
+                                                      tableendcol,
+                                                      tableendrow,
+                                                      numcol,
+                                                      numrow)
 
+
+    def startcell(self, tableendcol, tableendrow, numcol, numrow):
         
-
-
-
-    def startcell(self, rowcoord, colcoord, numrow, numcol):
-
         # search vertically for next table
-        for row in self._sheet.iter_rows():
-                if not row[self._sheet.min_row].value:
-                    rowcoord += 1
+        #assume tables are aligned, check first col for empty cells
+        for row in self._sheet.iter_rows(min_row=tableendrow):
+            if not row[self._sheet.min_row].value:
+                tableendrow +=1
+        
         
         '''
         # start seraching horizontally if maxrows reached
-        if rowcoord == self._sheet.max_row:
-            for col in self._sheet.iter_cols(min_col = colcoord):
+        if tableendrow == self._sheet.max_row:
+            for col in self._sheet.iter_cols(min_col = tableendcol):
                 if not col[0].value:
-                    colcoord += 1
+                    tableendcol += 1
 
-            return self._sheet.cell(row=(rowcoord-numrow+1),
-                                    column=colcoord).coordinate
+            return self._sheet.cell(row=(tableendrow-numrow+1),
+                                    column=tableendcol).coordinate
         else:
-            return self._sheet.cell(row=rowcoord,
-                                    column=(colcoord-numcol+1)).coordinate
+            return self._sheet.cell(row=tableendrow,
+                                    column=(tableendcol-numcol+1)).coordinate
         '''
-
-        startcell = self._sheet.cell(row=rowcoord,
-                                    column=(colcoord-numcol+1))
-        return startcell.coordinate, startcell.row , startcell.column        
+        
+        startcell = self._sheet.cell(column=(tableendcol-numcol+1),
+                                     row=tableendrow)
+        return startcell, startcell.column, startcell.row
 
     
 
@@ -150,29 +145,30 @@ class Sheet():
         
         
 
-# table class probably to scan empty cells that bound the table
-# or look for cell border formatting in the file
+# table class to scan empty cells that bound the table
+# ((or look for cell border formatting in the file))
 class Table():
-    def __init__(self, startcell, numrow, numcol, table):
+    def __init__(self, sheet, coords, numcol, numrow):
         
         #defines table object with starting cell and dimensions
-        self._startcell = startcell
-        self._numrow = numrow
+        self._sheet = sheet
+        
+        self._coords = coords
         self._numcol = numcol
-        self.table = table
+        self._numrow = numrow
+        self._rows = []
+        self._header = {}
 
         
     @property
     def header(self):
-        header = []
-        for cell in self.table[0]:
-            header.append(cell.value)
-
-        return header
+        
+        return Row(self, 0)
 
     @property
     def rows(self):
-        return [([cell.value for cell in row]) for row in self.table]
+        return [Row(self, index) for index in range(self._numrow)]
+        
 
     @property
     def columns(self):
@@ -181,21 +177,63 @@ class Table():
         while idx < len(self.table[0]):
             columns.append([row[idx].value for row in self.table])
             idx+=1
-            
         return columns
-            
-            
-            
-        
-        
-        
 
-        
+
+    @property
+    def coords(self):
+        return self._coords
+    
+
 
 class Row():
     
-    def __init__(self, row ):
-        self.row = row
+    def __init__(self, table, index):
+        self._table = table
+        self._index = index
+
+    def rowvals(self):
+        sheet = self._table._sheet
+        
+        y = index+ self._table.coords[1]
+        
+        retval = []
+        for x in range(self._table._coords[0],
+                       self._table.numcol + self._table._coords[0]):
+            cellval = sheet.cell(x,y).value
+            retval.append(cellval)
+
+        return retval
+        
+
+    def __getitem__(self, key):
+        pass
+
+
+
+
+class Column():
+    
+    def __init__(self, table, index):
+        self._table = table
+        self._index = index
+
+    def rowvals(self):
+        sheet = self._table._sheet
+        
+        y = index+ self._table.coords[1]
+        
+        retval = []
+        for x in range(self._table._coords[0],
+                       self._table.numcol + self._table._coords[0]):
+            cellval = sheet.cell(x,y).value
+            retval.append(cellval)
+
+        return retval
+        
+
+    def __getitem__(self, key):
+        return self._row[key]
 
             
 #class Cell():
@@ -205,7 +243,7 @@ class Row():
 if __name__ == '__main__':
     #workbookname = input(print("Input workbookname: "))
     
-    wb = virpyt_Workbook('sample.xlsx')
+    wb = VirpytWorkbook('sample.xlsx')
     print(wb)        #address of openpyxl workbook object
 
     print(wb.sheets)        #list of sheet object addresses
@@ -215,8 +253,7 @@ if __name__ == '__main__':
     for sheet in wb.sheets:     #prints each sheet title
         print("Found sheet named %s" % sheet.name)
         for table in sheet.tables:
-            print("Found table: ", table._startcell,
-                  table._numrow, table._numcol)
-            print(table.header)
-            #print(table.rows[0])    #rows[0] same as header method
-            print(table.columns[0])  #prints first column of data in each table
+            print("Found table: ", table.coords,
+                  table._numcol, table._numrow)
+
+            
