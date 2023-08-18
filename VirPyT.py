@@ -1,76 +1,111 @@
-# use openpyxl to open an excel sheet
-# use python classes to sort attributes of the excel sheet
+"""use openpyxl to open an excel sheet
 
+use python classes to sort attributes of the excel sheet
+"""
 
+import csv
 import openpyxl
 
 
-# workbook class with pointer to the workbook
+def csv_to_excel(filename):
+    """converts csv file to xlsx using openpyxl"""
+    csv_data = []
+    with open(filename) as file_obj:
+        reader = csv.reader(file_obj)
+        for row in reader:
+            csv_data.append(row)
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    for row in csv_data:
+        sheet.append(row)
+    return workbook
+
+
 class VirpytWorkbook():
-    
-    # constructor/attribute __init__() that takes a workbookname
-    # and then uses openpyxl to open that workbook and store the
-    # workbook pointer in a local member.  
+    """workbook class with pointer to the workbook
+
+    constructor/attribute __init__() that takes a workbookname
+    and then uses openpyxl to open that workbook and store the
+    workbook pointer in a local member.
+    """
+
     def __init__(self, filename):
-        self._workbook = openpyxl.load_workbook(filename)
-    
-    
-    # .sheetnames returns a list of sheetnames
+        """opens workbook using openpyxl and stores pointer locally"""
+        if filename[-3:] == "csv":
+            self._workbook = csv_to_excel(filename)
+
+        else:
+            self._workbook = openpyxl.load_workbook(filename)
+
+        self._sheet_map = {}
+
+        #wraps openpyxl sheet objects using Sheet class
+        for sheetname in self.sheetnames:
+            self._sheet_map[sheetname] = Sheet(self._workbook[sheetname],
+                                               sheetname)
+
+
     @property
     def sheetnames(self):
+        """returns a list of sheetnames"""
+
         return self._workbook.sheetnames
-    
-    
-    # returns a list of VirPyTSheet
+
+
     @property
     def sheets(self):
-                #wraps openpyxl sheet objects using Sheet class
-        return [Sheet(self._workbook[sheetname], sheetname)
-                for sheetname in self.sheetnames]
-    
-    
-    def save(self):
-        self._workbook.save()
+        """returns a list of VirPyTSheet"""
+        return [self._sheet_map[sheetname] for sheetname in self._sheet_map]
 
 
 
-# sheet class with pointers to sheets in the workbook
 class Sheet():
-    
+    """sheet class with pointers to sheets in the workbook"""
+
     def __init__(self, sheet, name):
         self._sheet = sheet     #openpyxl sheet obj
         self._name = name
         self._tables = {}       #{startcell : values}
-    
-    
+
+
     @property
     def name(self):
+        """returns sheetname"""
         return self._name
-    
+
+
     #table objects
     @property
     def tables(self):
+        """finds and stores tables"""
         self.find_tables()
         return [v for _,v in self._tables.items()]
-    
-    
-    
+
+
     def find_tables(self):
-        
+        """finds tables
+
+        using openpyxl to find the first cell with data,
+        the next empty column and row are found and tracked to show
+        dimensions of the table and location on the worksheet,
+        then method startcell() is called to find the next table, if any.
+        """
         # store worksheet starting cell indices
         tablestartrow = self._sheet.min_row
         tablestartcol = self._sheet.min_column
-        
+
         #find first cell with values using min_row, min_column
         startcell = self._sheet.cell(row=self._sheet.min_row,
                                      column=self._sheet.min_column).coordinate
-        
+
+        # loop to find table dimensions
         while tablestartrow < self._sheet.max_row:
+
             # 0-based numrow & numcol
-            # thesse will show dimensions of table
+            # thesse will store dimensions of table
             numrow = 0
             numcol = 0
-            
+
             # scan until empty column is found
             for col in self._sheet.iter_cols(min_col=tablestartcol,
                                              min_row=tablestartrow):
@@ -78,7 +113,7 @@ class Sheet():
                     numcol += 1     #count columns in header row
                 else:
                     break           #break when no value in header row
-            
+
             # scan until empty row is found
             for row in self._sheet.iter_rows(min_row=tablestartrow,
                                              min_col=tablestartcol,
@@ -92,18 +127,18 @@ class Sheet():
                     break
                 else:
                     numrow += 1
-            
+
             # store table starting cell coords as tuple
             coords = (tablestartcol, tablestartrow)
-            
+
             # store table ending cell indices
-            tableendcol = (tablestartcol + numcol -1)
-            tableendrow = (tablestartrow + numrow -1)
-            
+            tableendcol = tablestartcol+numcol-1
+            tableendrow = tablestartrow+numrow-1
+
             # store table information in _tables dict
             self._tables[startcell] = Table(self._sheet, coords,
                                             numcol, numrow)
-            
+
             # use ending cell indices to find next table starting cell
             startcell, tablestartcol, tablestartrow = self.startcell(
                                                       tableendcol,
@@ -113,7 +148,8 @@ class Sheet():
 
 
     def startcell(self, tableendcol, tableendrow, numcol, numrow):
-        
+        """finds next table's starting location on worksheet"""
+
         # search vertically for next table
         #assume tables are aligned, check first col for empty cells
         for row in self._sheet.iter_rows(min_row=tableendrow):
@@ -121,8 +157,8 @@ class Sheet():
             # first column of previous table
             if not row[self._sheet.min_row].value:
                 tableendrow +=1
-        
-        '''
+
+        """
         # start seraching horizontally if maxrows reached
         if tableendrow == self._sheet.max_row:
             for col in self._sheet.iter_cols(min_col = tableendcol):
@@ -134,8 +170,8 @@ class Sheet():
         else:
             return self._sheet.cell(row=tableendrow,
                                     column=(tableendcol-numcol+1)).coordinate
-        '''
-        
+        """
+
         startcell = self._sheet.cell(column=(tableendcol-numcol+1),
                                      row=tableendrow)
         return startcell, startcell.column, startcell.row
@@ -144,105 +180,110 @@ class Sheet():
 
 
 class Table():
+    """table objects hold ranges of cells on worksheet"""
+
     def __init__(self, sheet, coords, numcol, numrow):
-        
+
         #defines table object with starting cell and dimensions
         self._sheet = sheet
-        
+
         self._coords = coords
         self._numcol = numcol
         self._numrow = numrow
         self._rows = []
+        self._colmap = {}
 
-    
-    @property
-    def header(self):
-        return Row(self, 0)
+
+        self.header = Row(self, 0).rowvals
+
+        #
+        for item in self.header:
+            self._colmap[item] = self.header.index(item)
+
 
     @property
     def rows(self):
+        """wraps rows in Row objects"""
         return [Row(self, index) for index in range(self._numrow)]
-        
+
 
     @property
     def columns(self):
+        """wraps columns in Column objects"""
         return [Column(self, index) for index in range(self._numcol)]
 
 
     @property
     def coords(self):
+        """returns table's starting cell coordinates"""
         return self._coords
-    
+
 
 
 class Row():
-    
+    """Row objects hold horizontal values of cells in table"""
+
     def __init__(self, table, index):
         self._table = table
         self._index = index
 
+
     @property
     def rowvals(self):
+        """returns cell values by row"""
+
         sheet = self._table._sheet
-        
+
         y = self._index + self._table.coords[1]
 
-        '''
-        retval = []
-        for x in range(self._table._coords[0],
-                       self._table.numcol + self._table._coords[0]):
-            cellval = sheet.cell(x,y).value
-            retval.append(cellval)
-        return retval
-        '''
         # cell coordinates are stored in openpyxl as (row, column)
         return [sheet.cell(y,x).value for x in range(self._table._coords[0],
                        self._table._numcol + self._table._coords[0])]
-    
-    
+
+    # use cell name to return index of table header
     def __getitem__(self, key):
-        pass
+
+        # get column index per key
+        col_index = self._table._colmap[key]
+        sheet = self._table._sheet
+        coords = self._table._coords
+
+        return sheet.cell(coords[0]+self._index, coords[1]+col_index)
 
 
 
 
 class Column():
-    
+    """Column objects hold vertical values of cells in table"""
+
     def __init__(self, table, index):
         self._table = table
         self._index = index
 
     @property
     def colvals(self):
+        """returns cell values by column"""
+
         sheet = self._table._sheet
-        
+
         x = self._index + self._table.coords[0]
-        
+
         retval = []
         for y in range(self._table._coords[1],
                        self._table._numrow + self._table._coords[1]):
             cellval = sheet.cell(y,x).value
             retval.append(cellval)
-        
-        return retval
-    
-    
-    def __getitem__(self, key):
-        pass
-    
-            
-#class Cell():
 
-              
+        return retval
+
+
 
 if __name__ == '__main__':
     #workbookname = input(print("Input workbookname: "))
-    
-    wb = VirpytWorkbook('sample.xlsx')
-    print(wb)        #address of openpyxl workbook object
 
+    wb = VirpytWorkbook('us-500.xlsx')
+    print(wb)        #address of openpyxl workbook object
     print(wb.sheets)        #list of sheet object addresses
-    
     print(wb.sheetnames)    #list of names of worksheets
 
     for sheet in wb.sheets:     #prints each sheet title
@@ -250,7 +291,4 @@ if __name__ == '__main__':
         for table in sheet.tables:
             print("Found table: ", table.coords,
                   table._numcol, table._numrow)
-            for row in table.rows:
-                print(row.rowvals)
-            for column in table.columns:
-                print(column.colvals)
+            print(table.header)
