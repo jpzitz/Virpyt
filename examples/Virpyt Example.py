@@ -1,42 +1,42 @@
-# Example code to test VirPyT snakeskin wrapper for .xlsx and .csv files.
-# Uses sample data taken from https://www.briandunning.com/sample-data/
-# Accessed on July 09 2023.
+"""Example code to test VirPyT snakeskin wrapper for .xlsx and .csv files.
+Uses sample data taken from https://www.briandunning.com/sample-data/
+Accessed on July 09 2023.
+"""
 
-import Virpyt
 from Virpyt import VirpytWorkbook
 
 
 
 def view_rows(table):
+    """opens employee records from last_name attribute"""
     print("View Rows")
-    lastnamecol = table.rows[0].index('last_name')
-    print(lastnamecol)
+    lastnamecol = table.columns[table.header.index('last_name')]
+    print(lastnamecol.colvals[1:])
     lastname = input(
         "To view an employee's information, please enter Last Name: ")
     try:
-        employeefile = table.rows[table.columns[lastnamecol].index(lastname)]
+        employeefile = table.rows[lastnamecol.colvals.index(lastname)].rowvals
         for item in employeefile:
-            print(item)
-
-
+            print("%13s" %table.header[employeefile.index(item)], ":", item)
     except ValueError:
         print("This employee is not in the database. Please try again.")
 
 
 
 def view_columns(table):
+    """opens all of a single attribute"""
     print("View Columns")
-    for item in table.rows[0]:
+    for item in table.header:
         print(item)
     viewcolumn = input("Please select information to view: ")
 
-    for item in table.columns[table.rows[0].index(viewcolumn)]:
+    for item in table.columns[table.header.index(viewcolumn)].colvals:
         print(item)
 
 
 
 def menu(table):
-    # menu for user selection
+    """menu for user selection"""
     print('------------------------------')
     print("{:5}".format("1"), "View Employee Information\n"+
           "{:5}".format("2"), "View List of Employees (or other information)\n"+
@@ -56,22 +56,21 @@ def menu(table):
         if choice == '99':
             print("Program exiting, have a nice day.")
             break
-
-        else:
-            print("That is not a valid choice, please try again.")
-            choice = input("Select one of the command numbers above: ")
+        print("That is not a valid choice, please try again.")
+        choice = input("Select one of the command numbers above: ")
 
 
 
 def main():
-    # Using a database of 500 imaginary employees,
-    # database includes the following:
-        # first_name, last_name, company_name,
-        # address, city, county, state, zip,
-        # phone1, phone2, email, web
-    # We can go through the database and pull out individual lists,
-    # either by row (an individual employee's information)
-    # or by column (a list of all of a certain thing, eg. all emails)
+    """Main method opens the file and stores the pointer.
+    Using a database of 500 imaginary employees, database includes the
+    following:
+        first_name, last_name, company_name, address, city, county, state, zip,
+        phone1, phone2, email, web
+    We can go through the database and pull out individual lists, either by row
+    (an individual employee's information) or by column (a list of all of a
+    certain attibute, eg. all emails)
+    """
 
     #open the speadsheet file using openpyxl through VirPyT
     wb = VirpytWorkbook('us-500.xlsx')
@@ -83,7 +82,7 @@ def main():
     sheetname = input("Please enter a sheetname to view: ")
     try:
         ws = wb.sheets[wb.sheetnames.index(sheetname)]
-        print("Now viewing %s" %sheetname)
+        print(f"Now viewing {sheetname}.")
     except ValueError:
         print("This worksheet is not in the file. Please try again.")
     except TypeError:
@@ -92,23 +91,23 @@ def main():
 
     # See all tables in a worksheet, ordered by starting cell location.
     for table in ws.tables:
-        print("Found table starting on %s" % table._startcell)
+        print("Found table starting on ", ws._sheet.cell(table._coords[0],
+                                                         table._coords[1]
+                                                         ).coordinate)
 
 
     # Open a table to view contents
     tablename = input("Please enter a starting location to view a table: ")
     try:
-        table = ws._table['%s' %tablename]
-        print("Now viewing table starting on %s" %tablename)
+        table = ws._tables[f"{tablename}"]
+        print(f"Now viewing table starting on{tablename}")
         menu(table)
     except ValueError:
         print("This table is not in the worksheet. Please try again.")
     except TypeError:
         print("Type Error. Please enter the starting location again.")
-
-
-   
-
+    except KeyError:
+        print("Key Error. Please enter the starting location again.")
 
 
 if __name__ == '__main__':
