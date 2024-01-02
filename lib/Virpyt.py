@@ -68,6 +68,8 @@ class VirpytSheet():
         self._name = name
         self._tables = {}       #{startcell : values}
 
+        self.find_tables()
+
 
     @property
     def name(self):
@@ -78,8 +80,7 @@ class VirpytSheet():
     #table objects
     @property
     def tables(self):
-        """finds and stores tables"""
-        self.find_tables()
+        """stores tables"""
         return [v for _,v in self._tables.items()]
 
 
@@ -249,7 +250,7 @@ class VirpytRow():
         sheet = self._table._sheet
         coords = self._table._coords
 
-        return sheet.cell(coords[0]+self._index, coords[1]+col_index)
+        return sheet.cell(coords[1]+self._index, coords[0]+col_index)
 
 
 
